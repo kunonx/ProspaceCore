@@ -1,0 +1,5 @@
+name: ProspaceCore
+main: net.prospacecraft.ProspaceCore.ProspaceCore
+author: [Kunonx]
+version: 1.0.0-SNAPSHOT
+description: No description.
