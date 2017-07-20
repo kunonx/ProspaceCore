@@ -1,8 +1,10 @@
 package net.prospacecraft.ProspaceCore.message
 
-//import net.minecraft.server.v1_11_R1.IChatBaseComponent
-//import net.minecraft.server.v1_11_R1.PacketPlayOutChat
-//import net.minecraft.server.v1_11_R1.PacketPlayOutTitle
+import net.minecraft.server.v1_12_R1.IChatBaseComponent
+import net.minecraft.server.v1_12_R1.PacketPlayOutChat
+import net.minecraft.server.v1_12_R1.PacketPlayOutTitle
+
+import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer
 
 import net.prospacecraft.ProspaceCore.plugin.PluginProperty
 
@@ -11,7 +13,6 @@ import net.prospacecraft.ProspaceCore.util.StringUtil
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.command.CommandSender
-//import org.bukkit.craftbukkit.v1_11_R1.entity.CraftPlayer
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -118,11 +119,10 @@ class PluginMessage
             plugin.getPluginMessage()!!.sendToConsole(message, values)
         }
 
-        /*
         fun sendActionMessage(p: Player, message: String)
         {
             val icbc = IChatBaseComponent.ChatSerializer.a("{\"text\": \"" + ChatColor.translateAlternateColorCodes('&', message) + "\"}")
-            val bar = PacketPlayOutChat(icbc, 2.toByte())
+            val bar : PacketPlayOutChat = PacketPlayOutChat(icbc)
             (p as CraftPlayer).handle.playerConnection.sendPacket(bar)
         }
 
@@ -136,8 +136,7 @@ class PluginMessage
             val s = BossBarTimer(b, time, process)
             s.runTaskTimer(DesignFramework.getInstance(), 5L, 1L)
         }
-
-        */
+*/
         fun sendTitleMessage(p: Player, fadein: Int, time: Int, fadeout: Int, main: String, sub: String)
         {
             title(main, p, fadein, time, fadeout)
@@ -154,6 +153,6 @@ class PluginMessage
         {
             val subtitle = PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.SUBTITLE, IChatBaseComponent.ChatSerializer.a("{\"text\":\"$message\"}"), fadein, time, fadeout)
             (p as CraftPlayer).handle.playerConnection.sendPacket(subtitle)
-        }*/
+        }
     }
 }

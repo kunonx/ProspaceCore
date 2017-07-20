@@ -84,24 +84,14 @@
       <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
     </repository>
     <repository>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots />
-      <id>sonatype.oss.snapshots</id>
-      <name>Sonatype OSS Snapshot Repository</name>
-      <url>http://oss.sonatype.org/content/repositories/snapshots</url>
+      <id>jetbrains-all</id>
+      <url>http://repository.jetbrains.com/all</url>
     </repository>
   </repositories>
   <pluginRepositories>
     <pluginRepository>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots />
-      <id>sonatype.oss.snapshots</id>
-      <name>Sonatype OSS Snapshot Repository</name>
-      <url>http://oss.sonatype.org/content/repositories/snapshots</url>
+      <id>jetbrains-all</id>
+      <url>http://repository.jetbrains.com/all</url>
     </pluginRepository>
   </pluginRepositories>
   <dependencies>

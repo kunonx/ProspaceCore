@@ -33,9 +33,10 @@ import net.prospacecraft.ProspaceCore.message.PluginMessage;
 import net.prospacecraft.ProspaceCore.message.Prefix;
 import net.prospacecraft.ProspaceCore.util.ReflectionUtil;
 import net.prospacecraft.ProspaceCore.util.StringUtil;
-import static net.prospacecraft.ProspaceCore.profile.Defined.NATIVE_PROCESSOR_DRIVER_NAME;
+import net.prospacecraft.ProspaceCore.profile.Defined;
 
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import org.jetbrains.annotations.NotNull;
@@ -94,15 +95,40 @@ public abstract class ProspaceBundlePlugin extends JavaPlugin implements Bundle,
     /**
      * Import the native module.
      * If there is no critical module, the plugin will not work properly, debugging and determine the cause.
+     * @param filename
+     * @return
+     * @exception  UnsatisfiedLinkError if either the libname argument
+     *             contains a file path, the native library is not statically
+     *             linked with the VM, or the library cannot be mapped to a
+     *             native library image by the host system
+     * @exception  NullPointerException if libname is null
      */
-    protected void installDLL()
+    public boolean loadSafetyLibrary(String filename)
     {
-        List<String> loadedNativeLibrary = pluginNativeLibraries.get(this);
-        if(!loadedNativeLibrary.contains(NATIVE_PROCESSOR_DRIVER_NAME + ".dll"))
+        String libFile;
+        if(!filename.contains(this.getDataFolder().toString())) libFile = this.getDataFolder().toString() + filename;
+        else libFile = filename;
+        try
         {
-            System.loadLibrary(new File(this.getDataFolder(), NATIVE_PROCESSOR_DRIVER_NAME + ".dll").toString());
+            if(! new File(libFile).exists())
+            {
+                // The library was deleted or not exist file
+                return false;
+            }
+            if(!pluginNativeLibraries.containsSingleValue(this, libFile))
+            {
+                // Loading library file
+                System.loadLibrary(libFile);
+            }
         }
+        catch(UnsatisfiedLinkError | SecurityException e)
+        {
+            return false;
+        }
+
+        return true;
     }
+
 
     // The first time you activated the plugin.
     // If the value is -1, it means that it is not activated normally.
@@ -150,12 +176,12 @@ public abstract class ProspaceBundlePlugin extends JavaPlugin implements Bundle,
             this.getPluginMessage().sendToConsole("&eCalling ProspaceBundlePluginLoader v{0}", this.getDescription().getVersion());
             if(bundleInstance instanceof JavaPlugin)
             {
-                if(bundleInstance.getClass().isAssignableFrom(BundleClasses.Companion.getBundleClass()))
+                if(BundleClasses.Companion.getBundleClass().isAssignableFrom(bundleInstance.getClass()))
                 {
                     this.getPluginMessage().sendToConsole("&eDetected BundlePluginLoader");
                     // Import the plugin bundle into a list and process it in the class(ProspaceBundlePlugin).
                     this.subPluginBundler = (Bundle)bundleInstance;
-                    List<?> bundledList = (List<?>) this.subPluginBundler.getBundle();
+                    Collection<?> bundledList = (Collection<?>)this.subPluginBundler.getBundle();
                     this.processBundleList(bundledList);
                 }
             }
@@ -168,11 +194,11 @@ public abstract class ProspaceBundlePlugin extends JavaPlugin implements Bundle,
      * This can be overridden to analyze various information.
      * @param bundledList The bundle value received from child base plugin
      */
-    protected void processBundleList(List<?> bundledList)
+    protected void processBundleList(Collection<?> bundledList)
     {
         for (int i = 0; i < bundledList.size(); i++)
         {
-            Object bundled = bundledList.get(i);
+            Object bundled = ((List<?>)bundledList).get(i);
             if(bundled instanceof Prefix)
             {
                 Prefix prefix = (Prefix) bundled;
@@ -206,7 +232,11 @@ public abstract class ProspaceBundlePlugin extends JavaPlugin implements Bundle,
      * @deprecated The method's not used by this plugin, Not implemented. Use {{@link #getPluginConfiguration()}} instead.
      */
     @Override
-    public FileConfiguration getConfig() { return super.getConfig(); }
+    public FileConfiguration getConfig()
+    {
+        YamlConfiguration configuration = YamlConfiguration.loadConfiguration(this.getConfigFile());
+        return configuration;
+    }
 
     /**
      * Hooks the handle object to the plug-in to manage it, and activates it.
@@ -261,7 +291,7 @@ public abstract class ProspaceBundlePlugin extends JavaPlugin implements Bundle,
 
         // Activates a processor that imports external modules and efficiently processes information from classes.
         // Ignore module if the wrong type of external module or fail to read it. However, The plugin may not work properly.
-        this.installDLL();
+        this.loadSafetyLibrary(Defined.NATIVE_PROCESSOR_DRIVER_NAME + ".dll");
 
         // Activate the ClassProcessor through the module.
         // The ClassProcessor is not a required module and does not need to have a corresponding JNI library.
