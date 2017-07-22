@@ -22,7 +22,6 @@ SOFTWARE.
 package net.prospacecraft.ProspaceCore
 
 import net.prospacecraft.ProspaceCore.plugin.ProspaceBundlePlugin
-
 import org.bukkit.Bukkit
 import org.bukkit.event.HandlerList
 import org.bukkit.event.Listener
@@ -32,6 +31,12 @@ import java.util.HashSet
 
 abstract class ActivateFramework : Handle, Runnable, Listener
 {
+    companion object
+    {
+        private val registeredFramework = HashSet<ActivateFramework>()
+        val allFramework: Set<ActivateFramework>
+            get() = registeredFramework
+    }
     var delay  : Long        = 0L
     var period : Long        = 0L
     var isSync : Boolean     = true
@@ -135,11 +140,4 @@ abstract class ActivateFramework : Handle, Runnable, Listener
      * Call the action method synchronously.
      */
     @Synchronized fun sync() = this.run()
-
-    companion object
-    {
-        private val registeredFramework = HashSet<ActivateFramework>()
-        val allFramework: Set<ActivateFramework>
-            get() = registeredFramework
-    }
 }

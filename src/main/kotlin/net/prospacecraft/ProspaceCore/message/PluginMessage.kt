@@ -1,11 +1,5 @@
 package net.prospacecraft.ProspaceCore.message
 
-import net.minecraft.server.v1_12_R1.IChatBaseComponent
-import net.minecraft.server.v1_12_R1.PacketPlayOutChat
-import net.minecraft.server.v1_12_R1.PacketPlayOutTitle
-
-import org.bukkit.craftbukkit.v1_12_R1.entity.CraftPlayer
-
 import net.prospacecraft.ProspaceCore.plugin.PluginProperty
 
 import net.prospacecraft.ProspaceCore.util.StringUtil
@@ -118,7 +112,7 @@ class PluginMessage
         {
             plugin.getPluginMessage()!!.sendToConsole(message, values)
         }
-
+/*
         fun sendActionMessage(p: Player, message: String)
         {
             val icbc = IChatBaseComponent.ChatSerializer.a("{\"text\": \"" + ChatColor.translateAlternateColorCodes('&', message) + "\"}")
@@ -153,6 +147,6 @@ class PluginMessage
         {
             val subtitle = PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.SUBTITLE, IChatBaseComponent.ChatSerializer.a("{\"text\":\"$message\"}"), fadein, time, fadeout)
             (p as CraftPlayer).handle.playerConnection.sendPacket(subtitle)
-        }
+        }*/
     }
 }

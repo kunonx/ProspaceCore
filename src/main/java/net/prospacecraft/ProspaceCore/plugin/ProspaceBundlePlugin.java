@@ -129,7 +129,6 @@ public abstract class ProspaceBundlePlugin extends JavaPlugin implements Bundle,
         return true;
     }
 
-
     // The first time you activated the plugin.
     // If the value is -1, it means that it is not activated normally.
     private long SystemEnabledMillis = -1L;

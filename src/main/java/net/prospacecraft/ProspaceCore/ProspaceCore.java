@@ -1,8 +1,8 @@
 package net.prospacecraft.ProspaceCore;
 
 import net.prospacecraft.ProspaceCore.message.Prefix;
-import net.prospacecraft.ProspaceCore.plugin.ProspaceBundlePlugin;
 
+import net.prospacecraft.ProspaceCore.plugin.ProspaceBundlePlugin;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;

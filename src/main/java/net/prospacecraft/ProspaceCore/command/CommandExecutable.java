@@ -2,6 +2,9 @@ package net.prospacecraft.ProspaceCore.command;
 
 import org.bukkit.command.CommandSender;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.List;
 
 public interface CommandExecutable
@@ -18,5 +21,5 @@ public interface CommandExecutable
      * @since 1.0.0
      * @author Kunonx
      */
-    boolean perform(CommandSender sender, List<String> args);
+    boolean perform(@NotNull CommandSender sender, @Nullable List<String> args);
 }
