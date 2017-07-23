@@ -23,10 +23,12 @@ package net.prospacecraft.ProspaceCore.command
 
 import net.prospacecraft.ProspaceCore.message.FancyMessage
 import net.prospacecraft.ProspaceCore.util.StringUtil
+
 import org.bukkit.ChatColor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.ConsoleCommandSender
 import org.bukkit.entity.Player
+
 import java.lang.reflect.ParameterizedType
 
 typealias PCommandType = ProspaceCommand<*>
@@ -58,9 +60,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 
         const val ALLOWED_PERM_COLORSET      : String = "&a"
 
-        const val UNAVAILABLE_COLORSET       : String = "&9"
-
-        const val AVAILABLE_COLORSET         : String = "&b"
+        const val PARAM_UNAVAILABLE_COLORSET : String = "&9"
 
         const val PARAM_REQUIREMENT_COLORSET : String = "&7"
 
@@ -101,18 +101,24 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         return null
     }
 
-    internal class CommandMessage(var message : String)
+    internal class CommandMessage(var message : String, var desc : MutableList<String> = ArrayList())
     {
         private val messageBuilder : FancyMessage = FancyMessage(message)
         fun getMessageBuilder() : FancyMessage = messageBuilder
 
-        private val desc : MutableList<String> = ArrayList()
         fun getDescription() : MutableList<String> = desc
 
         @Suppress("IMPLICIT_CAST_TO_ANY")
-        fun addMessage(message : String, index : Int = -1) = when (index) {
-                -1   -> desc.add(ChatColor.translateAlternateColorCodes('&', message))
-                else -> desc.add(index, message) }
+        fun addMessage(message : String, index : Int = -1) : MutableList<String>
+        {
+            when (index)
+            {
+                -1 -> desc.add(ChatColor.translateAlternateColorCodes('&', message))
+                else -> desc.add(index, message)
+            }
+            return desc
+        }
+
 
         fun send(sender : CommandSender)
         {
@@ -125,8 +131,35 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
     class Parameter(var param : String, var requirement : Boolean, var allowConsole : Boolean = true, var allowPlayer  : Boolean = true)
     {
         private var permission : String? = null
+        fun hasPermission() : Boolean = this.permission != null
+        fun checkPermission(relativeCommand : ProspaceCommand<*>, sender : CommandSender) : Boolean
+        {
+            if(relativeCommand.hasPermission())
+            {
+                val perm : String? = relativeCommand.getPermissionValue()
+                return sender.hasPermission(perm + permission)
+            }
+            else
+            {
+                return sender.hasPermission(this.permission)
+            }
+        }
+
+        fun getPermission() : String? = this.permission
 
         private var childParameter : Parameter? = null
+        fun setChild(param : Parameter) { this.childParameter = param }
+        fun hasChild() : Boolean = childParameter != null
+        fun getChild(index : Int = 0) : Parameter?
+        {
+            return if(index <= 0) childParameter
+            else
+            {
+                var param : Parameter? = this.getChild()
+                for(i in 0..index) param = this.getChild()
+                return param
+            }
+        }
 
         companion object
         {
@@ -141,7 +174,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             else -> false
         }
 
-        fun getParamValue(target : CommandSender) : String = when(this.requirement) {
+        fun getParamValue(target : CommandSender) : String = when(this.requirement)
+        {
                 true  -> String.format(REQUIREMENT_FORMAT, this.param)
                 false -> String.format(OPTIONAL_FORMAT, this.param)
         }
@@ -149,6 +183,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 
     //
     protected var mainCommand : String               = null!!
+
+    protected var commandDescription : MutableList<String>  = ArrayList()
 
     //
     protected var aliasCommand : MutableList<String> = ArrayList()
@@ -175,10 +211,23 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      */
     fun setAllowUsePlayer(usable : Boolean) { this.usablePlayer = usable }
 
-    private var parameter : MutableList<Parameter> = ArrayList()
-    fun getParameter()    : MutableList<Parameter> { return this.parameter }
-    fun hasParameter()    : Boolean = this.parameter.isEmpty()
-    fun hasRequireParam() : Boolean = if(this.parameter.isEmpty()) false else this.parameter[0].requirement
+    protected var parameter : Parameter? = null
+    fun hasParameter()    : Boolean = this.parameter != null
+    fun getParameterPermission(paramRoot : Parameter = this.parameter!!, index : Int = 0) : String?
+    {
+        val calcParam : (Parameter, Int) -> String? = { p, i -> p.getChild(i)!!.getPermission() }
+        var permissionValue : String? = this.getPermissionValue()
+        permissionValue ?: return calcParam(paramRoot, index)
+        permissionValue.let {
+            for(k in 0..index)
+                permissionValue = "$permissionValue.${paramRoot.getChild(k)!!.getPermission()}"
+            return permissionValue
+        }
+    }
+
+    protected fun getRelativeCommand(target : CommandSender? = null) : String = getRelativeCommand(this, null, false, target)
+
+    protected fun getRelativeCommand(isMain : Boolean, target : CommandSender? = null) : String = getRelativeCommand(this, null, isMain, target)
 
     /**
      * This is a command for help page.
@@ -187,19 +236,19 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * The output format is as follows: <br>
      * <ROOT_COMMAND> <SUB_MAIN_COMMAND> <SUB_SUB_MAIN_COMMAND> ..... <CURRENT_ALL_COMMAND>
      */
-    protected fun getRelativeCommand(command : PCommandType?, label : String? = null, isMain : Boolean = false, target : CommandSender? = null) : String?
+    protected fun getRelativeCommand(command : PCommandType?, label : String? = null, isMain : Boolean = false, target : CommandSender? = null) : String
     {
         var subLabel: String? = label
         command ?: throw RuntimeException("command cannot be null")
         if(command.isRoot())
-            subLabel = if(label == null) command.getAllCommands() else command.getAllCommands() + " " + label
+            subLabel = if(label == null) command.getAllCommands() else "${command.getAllCommands()} $label"
         else
             if(command.hasChildCommand())
             {
-                if(isMain) subLabel = if(label == null) command.getAllCommands() else command.getAllCommands() + " " + label
-                else subLabel = if(label == null) command.mainCommand else command.mainCommand + " " + label
+                if(isMain) subLabel = if(label == null) command.getAllCommands() else "${command.getAllCommands()} $label"
+                else subLabel = if(label == null) command.mainCommand else "${command.mainCommand} $label"
             }
-        return if(command.isRoot()) subLabel else this.getRelativeCommand(command.parentCommand, subLabel, false, target)
+        return if(command.isRoot()) subLabel!! else this.getRelativeCommand(command.parentCommand, subLabel, false, target)
     }
 
     /**
@@ -359,8 +408,11 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 
     protected fun sendHelpPage(sender: CommandSender)
     {
-
+        // First, Collect commands that will appear on the help page.
+        // It also takes an external command that is not related to this command.
+        // The help page will sort in ascending order.
         val commands : MutableList<PCommandType> = ArrayList()
+
         commands.addAll(this.externalCommand)
         commands.addAll(this.childCommand)
 
@@ -374,12 +426,62 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             commandTexts.add(headerMessage)
 
             // Creates a message to output the information of the command registered in this class.
-            var mainCommand : String? = this.getRelativeCommand(this, null, true, sender)
+            // This is adding the main command (this class) at the top of the page.
+            var mainCommand : String = this.getRelativeCommand(true, sender)
+            if(this.hasParameter())
+            {
+                var param : Parameter = this.parameter!!
+                while(param.hasChild())
+                {
+                    mainCommand = "$mainCommand ${param.getParamValue(sender)}"
+                    param = param.getChild()!!
+                }
+            }
+            commandTexts.add(CommandMessage(mainCommand, this.commandDescription))
+
+            // The following process processes child commands and external commands
+            // except the main command.
+
+            // This is a function that shows one page.
+            // Therefore, there is no reason to calculate the page size.
+            val size_index : Int = when(sender)
+            {
+                is ConsoleCommandSender -> commands.size
+                is Player -> if(commands.size >= MAX_PAGE_SIZE) MAX_PAGE_SIZE - 1 else commands.size
+                else -> -1
+            }
+            for(index in 0..size_index)
+            {
+                val command : PCommandType = commands[index]
+                var relativeCommand = command.getRelativeCommand(true, sender)
+                if(command.hasParameter())
+                {
+                    var param : Parameter = command.parameter!!
+                    while(param.hasChild())
+                    {
+                        relativeCommand = "$relativeCommand ${param.getParamValue(sender)}"
+                        param = param.getChild()!!
+                    }
+                }
+                commandTexts.add(CommandMessage(relativeCommand, command.commandDescription))
+            }
+
+            // Finally, messages is printing.
+            for(e in commandTexts)
+            {
+                e.send(sender)
+            }
         }
         else
         {
-
+            // No provided help page.
         }
+    }
+
+    protected fun sendHelpSpecificPage(sender: CommandSender, page : Int = 1)
+    {
+        if(page <= 1) return sendHelpPage(sender)
+
     }
 
     override fun perform(sender: CommandSender, args: List<String>?) = false
