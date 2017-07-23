@@ -89,7 +89,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * @exception InstantiationException Failed to create instance object
      * @exception IllegalAccessException Approaching an unacceptable area
      */
-    fun getGenericInstance() : T?
+    fun getGenericInstance() : T
     {
         try
         {
@@ -98,7 +98,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         }
         catch(e : InstantiationException) { e.printStackTrace() }
         catch(e : IllegalAccessException) { e.printStackTrace() }
-        return null
+        return null!!
     }
 
     internal class CommandMessage(var message : String, var desc : MutableList<String> = ArrayList())
@@ -238,6 +238,12 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      */
     protected fun getRelativeCommand(command : PCommandType?, label : String? = null, isMain : Boolean = false, target : CommandSender? = null) : String
     {
+        if(mainCommand == null)
+        {
+            val javaClassName : String = getGenericInstance().javaClass.name
+            // You must set the main command before using this command.
+            // Please use the function to set the command: this.setMainCommand(String)
+        }
         var subLabel: String? = label
         command ?: throw RuntimeException("command cannot be null")
         if(command.isRoot())
@@ -408,6 +414,13 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 
     protected fun sendHelpPage(sender: CommandSender)
     {
+        if(mainCommand == null)
+        {
+            val javaClassName : String = getGenericInstance().javaClass.name
+            // You must set the main command before using this command.
+            // Please use the function to set the command: this.setMainCommand(String)
+        }
+
         // First, Collect commands that will appear on the help page.
         // It also takes an external command that is not related to this command.
         // The help page will sort in ascending order.
