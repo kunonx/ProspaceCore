@@ -5,7 +5,7 @@
   <artifactId>ProspaceCore</artifactId>
   <version>1.0-SNAPSHOT</version>
   <build>
-    <sourceDirectory>${project.basedir}/src/main/java</sourceDirectory>
+    <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
     <finalName>ProspaceCore</finalName>
     <plugins>
       <plugin>

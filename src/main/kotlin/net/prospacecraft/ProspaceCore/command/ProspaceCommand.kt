@@ -21,20 +21,25 @@ SOFTWARE.
 */
 package net.prospacecraft.ProspaceCore.command
 
-import org.bukkit.ChatColor as BukkitChatColor
+import net.prospacecraft.ProspaceCore.message.FancyMessage
+import net.prospacecraft.ProspaceCore.util.StringUtil
+import org.bukkit.ChatColor
 import org.bukkit.command.CommandSender
-
+import org.bukkit.command.ConsoleCommandSender
+import org.bukkit.entity.Player
 import java.lang.reflect.ParameterizedType
+
+typealias PCommandType = ProspaceCommand<*>
 
 /**
  * ProspaceCommand is an abstraction command skeleton that allows you to register a command
  * directly to Bukkit without any setting. This is an extended of original function, which
  * allows the developer to easily skip the complex process of registering commands in the
- * game and do it easily.
+ * game and do it easily.<br>
  *
  * It uses a self-referencing generic to avoid errors in grammar settings. The developer can
- * determine whether the class is activated by Handle. It cannot be used even if the command is
- * registered with Bukkit when It's deactivated.<br><br>
+ * determine whether the class is activated by Handle. It cannot be used even if the command
+ * is registered with Bukkit when It's deactivated.<br><br>
  *
  * <b>About self-referencing generic class</b>
  * http://www.angelikalanger.com/GenericsFAQ/FAQSections/ProgrammingIdioms.html#FAQ206
@@ -47,62 +52,25 @@ import java.lang.reflect.ParameterizedType
 @Suppress("UNCHECKED_CAST")
 open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 {
-
-    /**
-     * Permission is a class created by subdividing the functions of the privileges used in the game.
-     * @author Kunonx
-     * @since 1.0.0-SNAPSHOT
-     */
-    @Suppress("UNREACHABLE_CODE")
-    class Permission
+    object CommandColorSet
     {
-        var name : String = null!!
-            set(value)
-            {
-                val str = if(value.startsWith('.')) value.substring(1) else value
-                this.name = str
-            }
+        const val DEINED_PERM_COLORSET       : String = "&c"
 
-        var defaultOP : Boolean = true
+        const val ALLOWED_PERM_COLORSET      : String = "&a"
 
-        var usableConsole : Boolean = true
+        const val UNAVAILABLE_COLORSET       : String = "&9"
 
-        var usablePlayer : Boolean = true
+        const val AVAILABLE_COLORSET         : String = "&b"
 
-        constructor(name: String, defaultOP : Boolean = true)
-        {
-            name = name.trimMargin()
-            if(name.startsWith('.')) name = name.substring(1)
-            this.name = name
-            this.defaultOP = defaultOP
-        }
+        const val PARAM_REQUIREMENT_COLORSET : String = "&7"
 
-        companion object
-        {
-            val DEINED_PERM_COLORSET  : String = "&c"
-            val ALLOWED_PERM_COLORSET : String = "&a"
-        }
-
-        fun isDefaultOP() : Boolean = defaultOP
-
-        fun hasPermission(sender : CommandSender) : Boolean = sender.hasPermission(this.name)
-
-        fun getPermissionName(target : CommandSender? = null) : String
-        {
-            target ?: return name
-            target.let {
-                val colorSet : String = null!!
-                if(target.isOp) colorSet = ALLOWED_PERM_COLORSET
-                else colorSet = if(this.hasPermission(target)) ALLOWED_PERM_COLORSET else DEINED_PERM_COLORSET
-                return BukkitChatColor.translateAlternateColorCodes('&',colorSet + name)
-            }
-        }
+        const val PARAM_OPTIONAL_COLORSET    : String = "&8"
     }
 
     // Contains all currently registered command classes.
     // It uses this to access the command list to indirectly modify or read the information.
     companion object @Transient private
-    val registerCommands : MutableList<ProspaceCommand<*>> = ArrayList()
+    val registerCommands : MutableList<PCommandType> = ArrayList()
 
     // This is a generic object of this class. It contains information about the superclass.
     private lateinit var genericClazz : Class<T>
@@ -133,11 +101,84 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         return null
     }
 
+    internal class CommandMessage(var message : String)
+    {
+        private val messageBuilder : FancyMessage = FancyMessage(message)
+        fun getMessageBuilder() : FancyMessage = messageBuilder
 
-    private var mainCommand : String = null!!
+        private val desc : MutableList<String> = ArrayList()
+        fun getDescription() : MutableList<String> = desc
 
-    private var aliasCommand : MutableList<String> = ArrayList()
-    fun hasAliasCommand(alias : String) : Boolean = aliasCommand.contains(alias.toLowerCase())
+        @Suppress("IMPLICIT_CAST_TO_ANY")
+        fun addMessage(message : String, index : Int = -1) = when (index) {
+                -1   -> desc.add(ChatColor.translateAlternateColorCodes('&', message))
+                else -> desc.add(index, message) }
+
+        fun send(sender : CommandSender)
+        {
+            messageBuilder.tooltip(desc.asIterable())
+            messageBuilder.send(sender)
+        }
+    }
+
+    //TODO
+    class Parameter(var param : String, var requirement : Boolean, var allowConsole : Boolean = true, var allowPlayer  : Boolean = true)
+    {
+        private var permission : String? = null
+
+        private var childParameter : Parameter? = null
+
+        companion object
+        {
+            val REQUIREMENT_FORMAT : String = CommandColorSet.PARAM_REQUIREMENT_COLORSET + "<%s>"
+
+            val OPTIONAL_FORMAT    : String = CommandColorSet.PARAM_OPTIONAL_COLORSET + "[&s]"
+        }
+
+        fun isAllowed(sender : CommandSender) : Boolean = when(sender) {
+            is Player -> allowPlayer
+            is ConsoleCommandSender -> allowConsole
+            else -> false
+        }
+
+        fun getParamValue(target : CommandSender) : String = when(this.requirement) {
+                true  -> String.format(REQUIREMENT_FORMAT, this.param)
+                false -> String.format(OPTIONAL_FORMAT, this.param)
+        }
+    }
+
+    //
+    protected var mainCommand : String               = null!!
+
+    //
+    protected var aliasCommand : MutableList<String> = ArrayList()
+    fun hasAliasCommand(alias : String) : Boolean    = aliasCommand.contains(alias.toLowerCase())
+
+    //
+    private var messageBuilder : CommandMessage?     = null
+
+    //
+    private var usableConsole : Boolean              = true
+
+    /**
+     * Decide if you want to allow the player to use this command.
+     * This can also affect child commands.
+     */
+    fun setAllowUseConsole(usable : Boolean) { this.usableConsole = usable }
+
+    //
+    private var usablePlayer : Boolean = true
+
+    /**
+     * Decide if you want to allow the player to use this command.
+     * This can also affect child commands.
+     */
+    fun setAllowUsePlayer(usable : Boolean) { this.usablePlayer = usable }
+
+    private var parameter : MutableList<Parameter> = ArrayList()
+    fun getParameter()    : MutableList<Parameter> { return this.parameter }
+    fun hasParameter()    : Boolean = this.parameter.isEmpty()
+    fun hasRequireParam() : Boolean = if(this.parameter.isEmpty()) false else this.parameter[0].requirement
 
     /**
      * This is a command for help page.
@@ -146,7 +187,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * The output format is as follows: <br>
      * <ROOT_COMMAND> <SUB_MAIN_COMMAND> <SUB_SUB_MAIN_COMMAND> ..... <CURRENT_ALL_COMMAND>
      */
-    fun getRelativeCommand(command : ProspaceCommand<*>?, label : String? = null, isMain : Boolean = false) : String?
+    protected fun getRelativeCommand(command : PCommandType?, label : String? = null, isMain : Boolean = false, target : CommandSender? = null) : String?
     {
         var subLabel: String? = label
         command ?: throw RuntimeException("command cannot be null")
@@ -158,7 +199,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
                 if(isMain) subLabel = if(label == null) command.getAllCommands() else command.getAllCommands() + " " + label
                 else subLabel = if(label == null) command.mainCommand else command.mainCommand + " " + label
             }
-        return if(command.isRoot()) subLabel else this.getRelativeCommand(command.parentCommand, subLabel, false)
+        return if(command.isRoot()) subLabel else this.getRelativeCommand(command.parentCommand, subLabel, false, target)
     }
 
     /**
@@ -167,7 +208,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * The output format is as follows: <br>
      * <MAIN_COMMAND>,<ALIAS_COMMAND>,<ALIAS_COMMAND2>, ... ,<ALIAS_COMMAND>
      */
-    fun getAllCommands(): String
+    protected fun getAllCommands(target: CommandSender? = null): String
     {
         var s : String = ""
         val iter : Iterator<String> = this.aliasCommand.iterator()
@@ -181,23 +222,56 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
     }
 
     // Saves subclasses that operate on this command.
-    private var childCommand : MutableList<ProspaceCommand<*>> = ArrayList()
+    protected var childCommand : MutableList<PCommandType> = ArrayList()
     fun hasChildCommand() : Boolean = when(childCommand.size) { 0 -> false; else -> true }
-    fun getChildCommand(cmd : String) : ProspaceCommand<*>?
+    fun getChildCommand(cmd : String) : PCommandType?
     {
         if (this.hasChildCommand()) return null
         return this.childCommand.firstOrNull { it.mainCommand.equals(cmd, true) || it.hasAliasCommand(cmd) }
     }
-    fun getChildCommands() : MutableList<ProspaceCommand<*>> = childCommand
+    fun getChildCommands() : MutableList<PCommandType> = childCommand
+
+    protected var externalCommand : MutableList<PCommandType> = ArrayList()
+    fun addExternalCommand(command: PCommandType) { this.externalCommand.add(command)}
+    fun getExternalCommands() : MutableList<PCommandType> = externalCommand
 
 
     // The parent class of this class.
     // This connects the commands of that class to the parent class in tree form.
-    protected var parentCommand : ProspaceCommand<*>? = null
-        private set
+    private var parentCommand : PCommandType? = null
     fun hasParent() : Boolean = this.parentCommand != null
-    fun setParent(parent : ProspaceCommand<*>) { this.parentCommand = parent }
+    private fun setParent(parent : PCommandType) { this.parentCommand = parent }
     fun isRoot(): Boolean = this.parentCommand == null
+
+    /**
+     * Permission is a class created by subdividing the functions of the privileges used in the game.
+     * @author Kunonx
+     * @since 1.0.0-SNAPSHOT
+     */
+    @Suppress("UNREACHABLE_CODE")
+    class Permission(var name: String, var defaultOP: Boolean = true)
+    {
+        fun isDefaultOP() : Boolean = defaultOP
+
+        fun hasPermission(sender : CommandSender) : Boolean = sender.hasPermission(this.name)
+
+        fun getPermissionName(target : CommandSender? = null) : String
+        {
+            target ?: return this.name
+            target.let {
+                val colorSet : String = null!!
+                if(target.isOp) if(this.isDefaultOP()) colorSet = CommandColorSet.ALLOWED_PERM_COLORSET
+                else colorSet = if(this.hasPermission(target)) CommandColorSet.ALLOWED_PERM_COLORSET else CommandColorSet.DEINED_PERM_COLORSET
+                return ChatColor.translateAlternateColorCodes('&',colorSet + this.name)
+            }
+        }
+
+        init
+        {
+            name = name.trimMargin()
+            if(name.startsWith('.')) name = name.substring(1)
+        }
+    }
 
     // The Permission for this command.
     // The Permission value of the child class is used in conjunction with the parent
@@ -208,24 +282,40 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * Get the Permission for this class.
      * It takes the permission value of this command and is not affected by the parent
      * class's information.
+     * @return
      */
     fun getPermission() : Permission? = this.permission
 
     /**
-     *
+     * Gets the Permission value.
+     * This is affected by the parent Permission value and it can colorize the string according to the target.
+     * @param senderTarget
+     * @return
      */
-    fun getPermissionValue() : String
+    fun getPermissionValue(senderTarget : CommandSender? = null) : String?
     {
-        return null!!
+        this.permission ?: return null
+        this.parentCommand ?: return this.permission!!.getPermissionName(senderTarget)
+
+        var parentsCmd : PCommandType? = this.parentCommand
+        var perm : String = this.permission!!.name
+
+        while(parentsCmd != null)
+        {
+            perm = parentsCmd.getPermission()!!.name + "." + perm
+            parentsCmd = parentsCmd.parentCommand!!
+        }
+        return if(senderTarget == null) perm else Permission(perm, this.permission!!.defaultOP).getPermissionName(senderTarget)
     }
 
     /**
-     *
+     * Check for Permission value. If not, this command will work without any separate permissions.
+     * @return true If the permission is null, otherwise false
      */
     fun hasPermission() : Boolean = this.permission != null
 
     /**
-     * Specifies a permission value. This can be affected by the value of the parent class.
+     * Specifies a permission value. This can be affected by the value of the parent class.<br>
      * For example, Here is the code:<br>
      * <pre>
      * <code>
@@ -238,7 +328,6 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      *       this.addChildCommand(ChildCommand())
      *   }
      * }
-     *
      * class ChildCommand : ProspaceCommand<ChildCommand>
      * {
      *   init
@@ -251,54 +340,47 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * println(new ParentCommand().getChildCommand("run").getPermissionValue())
      * </code>
      * </pre>
-     * The output of this code will be "prospacecore.run". This shows that the value can vary<br>
-     * depending on the parent class.<br>
-     * That is, the child information changes automatically according to the parent value and<br>
-     * you will need to enter <code>/ps run</code> to use the ChildCommand's command.<br>
+     * The output of this code will be <code>"prospacecore.run"</code>. This shows that the value
+     * can vary depending on the parent class.<br>
+     * That is, the child information changes automatically according to the parent value and
+     * need to enter <code>/ps run</code> to use the ChildCommand's command.<br>
      */
-    protected fun setPermission(perm : Permission)
-    {
-        if(this.hasParent())
-        {
-            if(! this.hasChildCommand())
-            {
-                this.permission = perm
-                return
-            }
-            else
-            {
-
-            }
-        }
-        else
-        {
-            if (this.parentCommand!!.permission == null)
-            {
-                this.permission = perm
-                return
-            }
-            val parentPerm: Permission = this.parentCommand!!.permission!!
-
-            perm.name = parentPerm.name + "." + perm.name
-            perm.defaultOP = parentPerm.defaultOP
-
-            this.permission = perm
-        }
-    }
+    protected fun setPermission(perm : Permission) { this.permission = permission }
 
     /**
      * Specifies a permission value. This can be affected by the value of the parent class.
      * @see setPermission(Permission)
      */
-    protected fun setPermission(perm : String)
+    protected fun setPermission(perm : String)     { return setPermission(Permission(perm, true)) }
+
+    val MAX_PAGE_SIZE  : Short = 7
+
+    val HEADER_MESSAGE : String = "&e====&f [&b Help commands for &e\"{0}\" &a1/{1} &bpage(s) &f] &e===="
+
+    protected fun sendHelpPage(sender: CommandSender)
     {
-        return setPermission(Permission(perm, true))
+
+        val commands : MutableList<PCommandType> = ArrayList()
+        commands.addAll(this.externalCommand)
+        commands.addAll(this.childCommand)
+
+        if(commands.size != 0)
+        {
+            val commandTexts : MutableList<CommandMessage> = ArrayList()
+            val max_page = if(sender is ConsoleCommandSender) 1 else (commands.size / (MAX_PAGE_SIZE - 1)) + 1
+
+            // Create a header message.
+            val headerMessage : CommandMessage = CommandMessage(StringUtil.replaceValue(HEADER_MESSAGE, this.mainCommand, max_page))
+            commandTexts.add(headerMessage)
+
+            // Creates a message to output the information of the command registered in this class.
+            var mainCommand : String? = this.getRelativeCommand(this, null, true, sender)
+        }
+        else
+        {
+
+        }
     }
 
-    fun execute(sender: CommandSender, args: MutableList<String>) : Boolean
-    {
-        return false
-    }
-
-    override fun perform(sender: CommandSender, args: MutableList<String>?): Boolean = true
+    override fun perform(sender: CommandSender, args: List<String>?) = false
 }

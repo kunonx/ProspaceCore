@@ -17,7 +17,7 @@ public interface CommandExecutable
      * @param sender Source of the command
      * @param args Passed command arguments, List type
      * @see org.bukkit.plugin.java.JavaPlugin#onCommand(CommandSender, org.bukkit.command.Command, String, String[])
-     * @see net.prospacecraft.ProspaceCore.command.ProspaceCommand#execute(CommandSender, java.util.List)
+     * @see net.prospacecraft.ProspaceCore.command.ProspaceCommand
      * @since 1.0.0
      * @author Kunonx
      */
