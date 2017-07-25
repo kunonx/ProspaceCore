@@ -30,6 +30,7 @@ import org.bukkit.command.ConsoleCommandSender
 import org.bukkit.entity.Player
 
 import java.lang.reflect.ParameterizedType
+import javax.naming.OperationNotSupportedException
 
 typealias PCommandType = ProspaceCommand<*>
 
@@ -351,6 +352,17 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             name = name.trimMargin()
             if(name.startsWith('.')) name = name.substring(1)
         }
+
+        operator fun minus(str : String) : Permission
+        {
+            if(this.name.endsWith(".$str"))
+            {
+                return Permission(str.replaceAfterLast(".$str", ""), this.isDefaultOP())
+            }
+            throw RuntimeException("You cannot use this object to process this calculation")
+        }
+
+        operator fun plus(str : String) : Permission = Permission("$this.name.$str", this.defaultOP)
 
         fun  isDisconnected(): Boolean = this.name.split(".").isEmpty()
     }
