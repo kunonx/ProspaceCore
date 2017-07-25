@@ -13,15 +13,14 @@ class StringUtil
     {
         inline fun Color(str: String): String = ChatColor.translateAlternateColorCodes('&', str)
 
-        fun replaceValue(str: String, vararg values: Any): String
+        fun replaceValue(string: String, vararg values: Any): String
         {
-            var str = str
-            if (values == null) return str
-            if (values.size == 0) return str
+            var str = string
+            if (values.isEmpty()) return str
             var i = 0
             while (str.matches(".*\\{[0-9]\\}.*".toRegex()))
             {
-                var j = 0
+                var j : Int = 0
                 var value: String? = null
                 if (i >= values.size)
                 {
@@ -88,9 +87,9 @@ class StringUtil
             catch (e: NumberFormatException) { return false }
         }
 
-        inline fun isSymbolFormatted(format: String, value: String): Boolean = value.equals(String.format(format, value), ignoreCase = true)
+        fun isSymbolFormatted(format: String, value: String): Boolean = value.equals(String.format(format, value), ignoreCase = true)
 
-        inline fun removeSymbolFormat(format: String, value: String): String
+        fun removeSymbolFormat(format: String, value: String): String
         {
             val str = String.format(format, value)
             val buffer = StringBuffer()
@@ -98,7 +97,7 @@ class StringUtil
             return buffer.toString()
         }
 
-        inline fun isUniqueId(uuid: String): Boolean
+        fun isUniqueId(uuid: String): Boolean
         {
             try
             {

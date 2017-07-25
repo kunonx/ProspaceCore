@@ -65,6 +65,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         const val PARAM_REQUIREMENT_COLORSET : String = "&7"
 
         const val PARAM_OPTIONAL_COLORSET    : String = "&8"
+
+        const val DEFAULT_CHILD_PERMISSION   : String = "help"
     }
 
     // Contains all currently registered command classes.
@@ -127,7 +129,6 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         }
     }
 
-    //TODO
     class Parameter(var param : String, var requirement : Boolean, var allowConsole : Boolean = true, var allowPlayer  : Boolean = true)
     {
         private var permission : String? = null
@@ -168,7 +169,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             val OPTIONAL_FORMAT    : String = CommandColorSet.PARAM_OPTIONAL_COLORSET + "[&s]"
         }
 
-        fun isAllowed(sender : CommandSender) : Boolean = when(sender) {
+        fun isAllowed(sender : CommandSender) : Boolean = when(sender)
+        {
             is Player -> allowPlayer
             is ConsoleCommandSender -> allowConsole
             else -> false
@@ -176,13 +178,13 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 
         fun getParamValue(target : CommandSender) : String = when(this.requirement)
         {
-                true  -> String.format(REQUIREMENT_FORMAT, this.param)
-                false -> String.format(OPTIONAL_FORMAT, this.param)
+            true  -> String.format(REQUIREMENT_FORMAT, this.param)
+            false -> String.format(OPTIONAL_FORMAT, this.param)
         }
     }
 
     //
-    protected var mainCommand : String               = null!!
+    protected var mainCommand : String?              = null!!
 
     protected var commandDescription : MutableList<String>  = ArrayList()
 
@@ -225,8 +227,18 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         }
     }
 
+    /**
+     * for java method. <br>
+     * Unfortunately, the Java grammar does not support initial argument values.
+     * If you want to program using Java, see that method.
+     */
     protected fun getRelativeCommand(target : CommandSender? = null) : String = getRelativeCommand(this, null, false, target)
 
+    /**
+     * for java method. <br>
+     * Unfortunately, the Java grammar does not support initial argument values.
+     * If you want to program using Java, see that method.
+     */
     protected fun getRelativeCommand(isMain : Boolean, target : CommandSender? = null) : String = getRelativeCommand(this, null, isMain, target)
 
     /**
@@ -234,7 +246,11 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * It prints all the sub-commands available in that class.
      * If there is no value in Main Command, return value is null.
      * The output format is as follows: <br>
-     * <ROOT_COMMAND> <SUB_MAIN_COMMAND> <SUB_SUB_MAIN_COMMAND> ..... <CURRENT_ALL_COMMAND>
+     * <code><b><ROOT_COMMAND> <SUB_MAIN_COMMAND> <SUB_SUB_MAIN_COMMAND> ..... <CURRENT_ALL_COMMAND></b></code>
+     * @param command
+     * @param label
+     * @param isMain
+     * @param target If this argument is not null, It can colorize the command based on this target
      */
     protected fun getRelativeCommand(command : PCommandType?, label : String? = null, isMain : Boolean = false, target : CommandSender? = null) : String
     {
@@ -247,7 +263,14 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         var subLabel: String? = label
         command ?: throw RuntimeException("command cannot be null")
         if(command.isRoot())
-            subLabel = if(label == null) command.getAllCommands() else "${command.getAllCommands()} $label"
+            if(label == null)
+            {
+                subLabel = command.getAllCommands()
+            }
+            else
+            {
+                subLabel = "${command.getAllCommands()} $label"
+            }
         else
             if(command.hasChildCommand())
             {
@@ -284,6 +307,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         if (this.hasChildCommand()) return null
         return this.childCommand.firstOrNull { it.mainCommand.equals(cmd, true) || it.hasAliasCommand(cmd) }
     }
+
     fun getChildCommands() : MutableList<PCommandType> = childCommand
 
     protected var externalCommand : MutableList<PCommandType> = ArrayList()
@@ -317,7 +341,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
                 val colorSet : String = null!!
                 if(target.isOp) if(this.isDefaultOP()) colorSet = CommandColorSet.ALLOWED_PERM_COLORSET
                 else colorSet = if(this.hasPermission(target)) CommandColorSet.ALLOWED_PERM_COLORSET else CommandColorSet.DEINED_PERM_COLORSET
-                return ChatColor.translateAlternateColorCodes('&',colorSet + this.name)
+                return ChatColor.translateAlternateColorCodes('&',colorSet +
+                        if(this.isDisconnected()) this.name = "$this.name.$CommandColorSet.DEFAULT_CHILD_PERMISSION" else this.name)
             }
         }
 
@@ -326,6 +351,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             name = name.trimMargin()
             if(name.startsWith('.')) name = name.substring(1)
         }
+
+        fun  isDisconnected(): Boolean = this.name.split(".").isEmpty()
     }
 
     // The Permission for this command.
@@ -357,11 +384,12 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
 
         while(parentsCmd != null)
         {
-            perm = parentsCmd.getPermission()!!.name + "." + perm
+            perm = "${parentsCmd.getPermission()!!.name}.$perm"
             parentsCmd = parentsCmd.parentCommand!!
         }
         return if(senderTarget == null) perm else Permission(perm, this.permission!!.defaultOP).getPermissionName(senderTarget)
     }
+
 
     /**
      * Check for Permission value. If not, this command will work without any separate permissions.
@@ -395,12 +423,15 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
      * println(new ParentCommand().getChildCommand("run").getPermissionValue())
      * </code>
      * </pre>
-     * The output of this code will be <code>"prospacecore.run"</code>. This shows that the value
+     * The output of this code will be <code>"prospacecore.child"</code>. This shows that the value
      * can vary depending on the parent class.<br>
      * That is, the child information changes automatically according to the parent value and
      * need to enter <code>/ps run</code> to use the ChildCommand's command.<br>
      */
-    protected fun setPermission(perm : Permission) { this.permission = permission }
+    protected fun setPermission(perm : Permission)
+    {
+        this.permission = permission
+    }
 
     /**
      * Specifies a permission value. This can be affected by the value of the parent class.
@@ -435,7 +466,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             val max_page = if(sender is ConsoleCommandSender) 1 else (commands.size / (MAX_PAGE_SIZE - 1)) + 1
 
             // Create a header message.
-            val headerMessage : CommandMessage = CommandMessage(StringUtil.replaceValue(HEADER_MESSAGE, this.mainCommand, max_page))
+            val headerMessage : CommandMessage = CommandMessage(StringUtil.replaceValue(HEADER_MESSAGE, this.mainCommand!!, max_page))
             commandTexts.add(headerMessage)
 
             // Creates a message to output the information of the command registered in this class.
@@ -494,8 +525,9 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
     protected fun sendHelpSpecificPage(sender: CommandSender, page : Int = 1)
     {
         if(page <= 1) return sendHelpPage(sender)
-
+        //TODO
     }
+
 
     override fun perform(sender: CommandSender, args: List<String>?) = false
 }
