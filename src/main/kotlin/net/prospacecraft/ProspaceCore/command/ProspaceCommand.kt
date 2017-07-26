@@ -22,6 +22,8 @@ SOFTWARE.
 package net.prospacecraft.ProspaceCore.command
 
 import net.prospacecraft.ProspaceCore.message.FancyMessage
+import net.prospacecraft.ProspaceCore.message.PluginMessage
+import net.prospacecraft.ProspaceCore.plugin.ProspaceBundlePlugin
 import net.prospacecraft.ProspaceCore.util.StringUtil
 
 import org.bukkit.ChatColor
@@ -30,7 +32,6 @@ import org.bukkit.command.ConsoleCommandSender
 import org.bukkit.entity.Player
 
 import java.lang.reflect.ParameterizedType
-import javax.naming.OperationNotSupportedException
 
 typealias PCommandType = ProspaceCommand<*>
 
@@ -227,6 +228,8 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
             return permissionValue
         }
     }
+
+    fun isAllowed(sender : CommandSender) : Boolean = sender.hasPermission(this.getPermissionValue())
 
     /**
      * for java method. <br>
@@ -522,7 +525,7 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
                 commandTexts.add(CommandMessage(relativeCommand, command.commandDescription))
             }
 
-            // Finally, messages is printing.
+            // Finally, messages are printing.
             for(e in commandTexts)
             {
                 e.send(sender)
@@ -540,6 +543,58 @@ open abstract class ProspaceCommand<T : ProspaceCommand<T>> : CommandExecutable
         //TODO
     }
 
+    fun execute(sender : CommandSender, args : MutableList<String>) : Boolean
+    {
+        val msg : PluginMessage = bundle.getPluginMessage()!!
+        if(args.size == 0)
+        {
+            if(this.hasChildCommand())
+            {
+                this.sendHelpPage(sender)
+                return true
+            }
+            else
+            {
+                if(this.hasParameter())
+                {
+                    if(parameter!!.requirement) msg.send(sender, "&cThe param \"${this.parameter!!.param}\" is required value!")
+                    return false
+                }
+
+                if(! this.isAllowed(sender))
+                    msg.send(sender, "&cYou're not authorized for this command. (${this.getPermission()})")
+
+                return this.perform(sender, args)
+            }
+        }
+        else
+        {
+            if(args[0].equals("?") || args[0].equals("help", true))
+            {
+                if(this.hasChildCommand() && !CommandExecutable::class.java.isAssignableFrom(this.getGenericType()))
+                {
+                    if(args.size >= 2 && StringUtil.isNumber(args[1]))
+                    {
+                        this.sendHelpSpecificPage(sender, Integer.parseInt(args[1]))
+                        return true
+                    }
+                    this.sendHelpPage(sender)
+                    return true
+                }
+                if(this.isAllowed(sender))
+                {
+
+                }
+            }
+            else
+            {
+
+            }
+        }
+        return false
+    }
+
+    lateinit var bundle : ProspaceBundlePlugin
 
     override fun perform(sender: CommandSender, args: List<String>?) = false
 }
